@@ -94,7 +94,7 @@ let quicksort l =
 let mergesort l = 
 		let rec mergesort_aux l m = match l with
 		[] -> m
-		|(h::t) -> 
+		|(h::t) -> mergesort_aux merge (fst(halfsplit l)) mergesort_aux (snd (halfsplit l))
 		in mergesort_aux fuck fuck
 let length l =
 		let rec length_aux l n = match l with
