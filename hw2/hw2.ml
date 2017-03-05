@@ -62,17 +62,76 @@ let rec union l m =
 let inorder t = 
 		let inorder_aux t l = match t with
 		Leaf x -> x::l
-		|Node (t1, x, t2) -> 
-	   
-let postorder _ = raise NotImplemented
+		|Node (t1, x, t2) -> inorder_aux t1 (x::inorder_aux t2 l)
+	in inorder_aux t []
 
-let preorder _ = raise NotImplemented    
+let postorder t = 
+		let postorder t l = match t with
+		Leaf x -> x::l
+		|Node (t1, x, t2) -> inorder_aux t1 ((postorder_aux t2 l) @ [x])
+	in postorder_aux t []
+
+let preorder t = 
+		let preorder_aux t l = match t with
+		Leaf x -> l @ [x]
+		|Node (t1, x, t2) -> inorder_aux t2 (x::inorder_aux t1 l)
+	in preorder_aux t []
 		       
 (** Sorting in the ascending order **)
 
-let rec quicksort _ = raise NotImplemented
+let quicksort l = 
+		let rec quicksort_aux l m = match l with
+		[] -> m
+		|(h::t) -> 
+				let rec divide l x (a,b) = match l with
+				[] -> (a,b)
+				|(h::t) -> if (h<x) then devide t x (h::a, b)
+							else if (h=x) then devide t x (h::a, b)
+														else devide t x (a, h::b)
+		in quicksort_aux (fst (divide t h ([],[])) ) (quicksort_aux (snd (divide t h ([],[]))) m)
+	in quicksort_aux l []
 
-let rec mergesort _ = raise NotImplemented
+let mergesort l = 
+		let rec mergesort_aux l m = match l with
+		[] -> m
+		|(h::t) -> 
+		in mergesort_aux fuck fuck
+let length l =
+		let rec length_aux l n = match l with
+		[] -> n
+		|(h::t) -> length_aux t (n+1)
+	in length_aux l 0
+let halfsplit l =
+		let rec split l (a,b) n = match l with
+		[] -> (a,b)
+	  |(h::t) -> if(n > 0) then split t (h::a, b) (n-1)
+												 else split t (a, h::b) (n-1)
+	in split l ([],[]) (length l)/2
+
+let merge l m = 
+		let merge_aux l m n =
+				let insert x l =
+						let insert_aux x l m = match l with
+						[] -> m
+						|(h::t) -> if(x>h) then insert x t (m @ [h])
+								  else if(x=h) then insert x t (m @ [h])
+									else if(x<h) then insert x t (m @ [x;h])
+				in insert_aux x l []
+		in match l with
+		[] -> (match m with
+				[] -> n
+				|(h::t) -> n @ m)	
+		|(h1::t1) -> (match m with
+								[] ->  n @ l
+								|(h2::t2) -> if(h1>h2) then merge_aux t1 t2 (n @ [h2;h1])
+												else if(h1=h2) then merge_aux t1 t2 (n @ [h1])
+												else if(h1<h2) then merge_aux t1 t2 (n @ [h1;h2])
+								)
+in merge_aux l m []
+
+
+		
+
 			
 (** Structures **)
 
