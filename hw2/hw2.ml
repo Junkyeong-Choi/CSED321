@@ -66,15 +66,15 @@ let inorder t =
 	in inorder_aux t []
 
 let postorder t = 
-		let postorder t l = match t with
+		let postorder_aux t l = match t with
 		Leaf x -> x::l
-		|Node (t1, x, t2) -> inorder_aux t1 ((postorder_aux t2 l) @ [x])
+		|Node (t1, x, t2) -> postorder_aux t1 ((postorder_aux t2 l) @ [x])
 	in postorder_aux t []
 
 let preorder t = 
 		let preorder_aux t l = match t with
 		Leaf x -> l @ [x]
-		|Node (t1, x, t2) -> inorder_aux t2 (x::inorder_aux t1 l)
+		|Node (t1, x, t2) -> preorder_aux t2 (x::preorder_aux t1 l)
 	in preorder_aux t []
 		       
 (** Sorting in the ascending order **)
@@ -82,56 +82,43 @@ let preorder t =
 let quicksort l = 
 		let rec quicksort_aux l m = match l with
 		[] -> m
+		|[x] -> x::m
 		|(h::t) -> 
 				let rec divide l x (a,b) = match l with
 				[] -> (a,b)
 				|(h::t) -> if (h<x) then devide t x (h::a, b)
-							else if (h=x) then devide t x (h::a, b)
+							else if (h=x) then devide t x (a @ [h], b)
 														else devide t x (a, h::b)
-		in quicksort_aux (fst (divide t h ([],[])) ) (quicksort_aux (snd (divide t h ([],[]))) m)
+		in quicksort_aux (fst (divide t h ([],[]))) (quicksort_aux (snd (divide t h ([],[]))) m)
 	in quicksort_aux l []
 
 let mergesort l = 
 		let rec mergesort_aux l m = match l with
 		[] -> m
-		|(h::t) -> mergesort_aux merge (fst(halfsplit l)) mergesort_aux (snd (halfsplit l))
-		in mergesort_aux fuck fuck
-let length l =
-		let rec length_aux l n = match l with
-		[] -> n
-		|(h::t) -> length_aux t (n+1)
-	in length_aux l 0
-let halfsplit l =
-		let rec split l (a,b) n = match l with
-		[] -> (a,b)
-	  |(h::t) -> if(n > 0) then split t (h::a, b) (n-1)
-												 else split t (a, h::b) (n-1)
-	in split l ([],[]) (length l)/2
-
-let merge l m = 
-		let merge_aux l m n =
+		|[x] -> 
 				let insert x l =
-						let insert_aux x l m = match l with
-						[] -> m
-						|(h::t) -> if(x>h) then insert x t (m @ [h])
-								  else if(x=h) then insert x t (m @ [h])
-									else if(x<h) then insert x t (m @ [x;h])
-				in insert_aux x l []
-		in match l with
-		[] -> (match m with
-				[] -> n
-				|(h::t) -> n @ m)	
-		|(h1::t1) -> (match m with
-								[] ->  n @ l
-								|(h2::t2) -> if(h1>h2) then merge_aux t1 t2 (n @ [h2;h1])
-												else if(h1=h2) then merge_aux t1 t2 (n @ [h1])
-												else if(h1<h2) then merge_aux t1 t2 (n @ [h1;h2])
-								)
-in merge_aux l m []
-
-
-		
-
+						let rec insert_aux x l m inserted= match l with
+								[] -> if(not inserted) then m@[x]
+																		   else m
+								|(h::t) -> 
+								if(inserted || x>h) then insert_aux x t m@[h] inserted
+																		else insert_aux x t m@[x;h] true
+				in insert_aux x l [] false
+		in	insert x m
+		|(h::t) -> 
+				let halfsplit l =
+						let rec split l (a,b) n = match l with
+								[] -> (a,b)
+								|(h::t) -> if(n > 0) then split t (h::a, b) (n-1)
+																		 else split t (a, h::b) (n-1)
+						and length l =
+								let rec length_aux l n = match l with
+								[] -> n
+								|(h::t) -> length_aux t (n+1)
+						in length_aux l 0
+				in split l ([],[]) (length l)/2
+		mergesort_aux (fst(halfsplit l)) (mergesort_aux (snd (halfsplit l)) m)
+in mergesort_aux l []
 			
 (** Structures **)
 
@@ -160,13 +147,13 @@ module Heap : HEAP =
   struct
     exception InvalidLocation 
 		
-    type loc = unit       (* dummy type, to be chosen by students *) 
-    type 'a heap = unit   (* dummy type, to be chosen by students *)
+    type loc = int       (* dummy type, to be chosen by students *) 
+    type 'a heap = 'a list   (* dummy type, to be chosen by students *)
 
-    let empty _ = raise NotImplemented
-    let allocate _ _ = raise NotImplemented
-    let dereference _ _ = raise NotImplemented
-    let update _ _ _ = raise NotImplemented
+    let empty () = []
+    let allocate h v = (h @ [v], List.length h)
+    let dereference h l = try List.nth h l with Failure _ -> raise InvaildLocation
+    let update h l v = List.mapi (fun i x -> if (i=l) then v else x) h
   end
     
 module DictList : DICT with type key = string =
@@ -174,10 +161,10 @@ module DictList : DICT with type key = string =
     type key = string
     type 'a dict = (key * 'a) list
 			      
-    let empty _ = raise NotImplemented
-    let lookup _ _ = raise NotImplemented
-    let delete _ _ = raise NotImplemented 
-    let insert _ _ = raise NotImplemented
+    let empty () = []
+    let lookup d k = raise NotImplemented
+    let delete d k = raise NotImplemented 
+    let insert d (k,v) = raise NotImplemented
   end
     
 module DictFun : DICT with type key = string =
@@ -185,8 +172,8 @@ module DictFun : DICT with type key = string =
     type key = string
     type 'a dict = key -> 'a option
 			     
-    let empty _ = raise NotImplemented
-    let lookup _ _ = raise NotImplemented
-    let delete _ _ = raise NotImplemented
-    let insert _ _ = raise NotImplemented
+    let empty () = raise NotImplemented
+    let lookup d k = raise NotImplemented
+    let delete d k = raise NotImplemented
+    let insert d k = raise NotImplemented
   end
