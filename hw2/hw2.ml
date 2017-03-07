@@ -43,15 +43,15 @@ let lfilter (p:'a -> bool) l =
 		let rec lfilter_aux (p:'a -> bool) l acc = match l with
 		[] -> acc
 		|(h::t) -> if (p h) 
-	then lfilter_aux p t (h::acc)
+	then lfilter_aux p t (acc@[h])
 	else lfilter_aux p t acc
 		in lfilter_aux p l []
 
 let ltabulate n (f:int -> 'a) = 
 		let rec ltabulate_aux n f acc = 
-		if (n=0) then acc
-		else ltabulate_aux (n-1) f (acc @ [f n])
-	in ltabulate_aux n f []
+		if (n<0) then acc
+		else ltabulate_aux (n-1) f (f n :: acc)
+	in ltabulate_aux (n-1) f []
 
 let rec union l m = 
 				let rec isduplicate l x = match l with
@@ -70,16 +70,17 @@ let inorder t =
 let postorder t = 
 		let rec postorder_aux t l = match t with
 		Leaf x -> x::l
-		|Node (t1, x, t2) -> postorder_aux t1 ((postorder_aux t2 l) @ [x])
+		|Node (t1, x, t2) -> postorder_aux t1 (postorder_aux t2 (x::l))
 	in postorder_aux t []
 
 let preorder t = 
 		let rec preorder_aux t l = match t with
 		Leaf x -> l @ [x]
-		|Node (t1, x, t2) -> preorder_aux t2 (x::preorder_aux t1 l)
+		|Node (t1, x, t2) -> preorder_aux t2 (preorder_aux t1 (l@[x]))
 	in preorder_aux t []
 		       
 (** Sorting in the ascending order **)
+
 
 let quicksort l = 
 		let rec quicksort_aux l m = match l with
@@ -91,7 +92,7 @@ let quicksort l =
 				|(h::t) -> if (h<x) then divide t x (h::a, b)
 							else if (h=x) then divide t x (a @ [h], b)
 														else divide t x (a, h::b)
-		in quicksort_aux (fst (divide t h ([],[]))) (quicksort_aux (snd (divide t h ([],[]))) m)
+		in quicksort_aux (fst (divide l h ([],[]))) (quicksort_aux (snd (divide l h ([],[]))) m)
 	in quicksort_aux l []
 
 let mergesort l =
@@ -127,8 +128,8 @@ let mergesort l =
 module type HEAP = 
   sig
     exception InvalidLocation
-    type loc
-    type 'a heap
+    type loc = int
+    type 'a heap = 'a list
     val empty : unit -> 'a heap
     val allocate : 'a heap -> 'a -> 'a heap * loc
     val dereference : 'a heap -> loc -> 'a 
@@ -178,5 +179,5 @@ module DictFun : DICT with type key = string =
     let empty () = fun x -> None
     let lookup d k = d k
     let delete d k = fun x -> if (x=k) then None else d k
-    let insert d (k,v) = fun x -> if (x=k) then v else d k
+    let insert d (k,v) = fun x -> if (x=k) then Some v else d k
   end
