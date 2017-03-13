@@ -40,7 +40,7 @@ end
 (* Problem 1-2 *)
 (* Vectors *)
 
-module VectorFn (Scal : SCALAR) : VECTOR with type elem = Scal.t
+module VectorFn (Scal : SCALAR) : VECTOR with type elem = Scal.t and type t = int -> Scal.t
 =
 struct
   type elem = Scal.t
@@ -48,10 +48,6 @@ struct
 
   exception VectorIllegal
 
-  let dim (f:t) = 
-    let rec dim_aux f i value =
-      try dim_aux f (i+1) (f i) with VectorIllegal -> i
-    in dim_aux f 0 Scal.zero
 
   let create l = if (l = []) then raise VectorIllegal
   else
@@ -60,6 +56,11 @@ struct
       |(h::t) -> create_aux t length (n-1) (fun x -> if(x = length - n) then h else fnc x)
     and f:int->elem = fun x -> raise VectorIllegal
     in create_aux l (List.length l) (List.length l) f
+  
+  let dim (f:t) = 
+    let rec dim_aux f i =
+      try dim_aux f (i+1) with VectorIllegal -> i
+    in dim_aux f 0
 
   let to_list f = 
     let rec to_list_aux f i l =
@@ -85,7 +86,6 @@ struct
       if (i = dim f) then value
       else innerp_aux f g (Scal.(++) value (Scal.( ** ) (f i) (g i))) (i+1)
     in innerp_aux f g Scal.zero 0
-
 end
 
 (* Problem 1-3 *)
@@ -95,20 +95,50 @@ module MatrixFn (Scal : SCALAR) : MATRIX with type elem = Scal.t
 =
 struct
   type elem = Scal.t
-  type t = int -> (int -> elem)
+  type t = int -> int -> elem
+
+  module ScalVector = VectorFn (Scal)
 
   exception MatrixIllegal
 
-  let create _ = raise NotImplemented
-  let identity _ = raise NotImplemented
-  let dim _ = raise NotImplemented
-  let transpose _ = raise NotImplemented
-  let to_list _ = raise NotImplemented
-  let get _ _ _ = raise NotImplemented 
+  let create l = if (l = []) then raise MatrixIllegal
+  else if (List.for_all (fun x -> (List.length x = List.length (List.nth l 0)) && (List.length (List.nth l 0) > 0)) l = false) then raise MatrixIllegal
+  else 
+    let rec create_aux l length n fnc = match l with
+      [] -> fnc
+      |(h::t) -> create_aux t length (n-1) (fun x -> if(x = length - n) then ScalVector.create h else fnc x)
+    and f:t = fun x -> raise MatrixIllegal
+    in create_aux l (List.length l) (List.length l) f
 
-  let (++) _ _ = raise NotImplemented
-  let ( ** ) _ _ = raise NotImplemented
-  let (==) _ _ = raise NotImplemented
+  let identity n = fun x y -> if(x=y) then Scal.one else Scal.zero
+  
+  let dim (f:t) = 
+    let rec dim_aux f i=
+      try dim_aux f (i+1) with MatrixIllegal -> i
+     in dim_aux f 0
+  
+  let transpose f = fun x y -> f y x
+  
+  let to_list f = 
+    let rec to_list_aux f i l =
+      if (i = (dim f)) then l
+      else to_list_aux f (i+1) (l @ [ScalVector.to_list (f i)])
+    in to_list_aux f 0 []
+
+  let get f r c = f r c
+
+  let (++) (f:t) (g:t) = if (dim f <> dim g || dim (transpose f) <> dim (transpose g)) then raise MatrixIllegal
+  else fun (i:int) (j:int) -> Scal.(++) (f i j) (g i j)
+  
+  let ( ** ) f g = if (dim g <> dim (transpose f)) then raise MatrixIllegal
+                    else fun (i:int) (j:int) -> ScalVector.innerp (f i) ((transpose g) j)
+
+  let (==) f g = if (dim f <> dim g || dim (transpose f) <> dim (transpose g)) then raise MatrixIllegal
+  else
+    let rec equation f g b i =
+      if (i = dim f) then b
+      else equation f g (b && (ScalVector.(==) (g i) (f i))) (i+1)
+    in equation f g true 0
 end
 
 (* Problem 2-1 *)
