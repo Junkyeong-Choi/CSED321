@@ -58,9 +58,9 @@ struct
     in create_aux l (List.length l) (List.length l) f
   
   let dim (f:t) = 
-    let rec dim_aux f i =
-      try dim_aux f (i+1) with VectorIllegal -> i
-    in dim_aux f 0
+    let rec dim_aux f i value=
+      try dim_aux f (i+1) (f i) with _ -> i
+    in dim_aux f 0 Scal.zero
 
   let to_list f = 
     let rec to_list_aux f i l =
@@ -71,7 +71,7 @@ struct
   let nth f n = f n
 
   let (++) (f:t) (g:t) = if (dim f <> dim g) then raise VectorIllegal 
-                  else fun (i:int) -> Scal.(++) (f i) (g i)
+                  else create (to_list (fun (i:int) -> Scal.(++) (f i) (g i)))
 
   let (==) f g = if (dim f <> dim g) then raise VectorIllegal
   else
@@ -110,28 +110,29 @@ struct
     and f:t = fun x -> raise MatrixIllegal
     in create_aux l (List.length l) (List.length l) f
 
-  let identity n = fun x y -> if(x=y) then Scal.one else Scal.zero
+  let identity n = if (n<= 0) then raise MatrixIllegal else fun x y ->if((x>=n) || (y>=n)) then raise MatrixIllegal else if(x=y) then Scal.one else Scal.zero
   
   let dim (f:t) = 
-    let rec dim_aux f i=
-      try dim_aux f (i+1) with MatrixIllegal -> i
-     in dim_aux f 0
-  
-  let transpose f = fun x y -> f y x
-  
+    let rec dim_aux f i value=
+      (try dim_aux f (i+1) (f i 0) with _ -> i)
+     in dim_aux f 0 Scal.zero
+
   let to_list f = 
     let rec to_list_aux f i l =
       if (i = (dim f)) then l
       else to_list_aux f (i+1) (l @ [ScalVector.to_list (f i)])
     in to_list_aux f 0 []
+  
+  let transpose f = create (to_list(fun x y -> f y x))
+  
 
   let get f r c = f r c
 
   let (++) (f:t) (g:t) = if (dim f <> dim g || dim (transpose f) <> dim (transpose g)) then raise MatrixIllegal
-  else fun (i:int) (j:int) -> Scal.(++) (f i j) (g i j)
+  else create (to_list (fun (i:int) (j:int) ->  (Scal.(++) (f i j) (g i j))))
   
   let ( ** ) f g = if (dim g <> dim (transpose f)) then raise MatrixIllegal
-                    else fun (i:int) (j:int) -> ScalVector.innerp (f i) ((transpose g) j)
+                    else create ( to_list (fun (i:int) (j:int) -> (ScalVector.innerp (f i) ((transpose g) j))))
 
   let (==) f g = if (dim f <> dim g || dim (transpose f) <> dim (transpose g)) then raise MatrixIllegal
   else
@@ -150,7 +151,12 @@ sig
 end
 =
 struct
-  let closure _ = raise NotImplemented
+  let closure mat_a = 
+    let rec closure_aux (current_closure:Mat.t) (given:Mat.t) =
+      let dimension_a = Mat.dim current_closure in
+    if(Mat.(==) current_closure (Mat.(++) (Mat.identity dimension_a) (Mat.( ** ) (current_closure) (given)))) then current_closure
+    else closure_aux  (Mat.(++) (Mat.identity dimension_a) (Mat.( ** ) (current_closure) (given))) given
+  in closure_aux (Mat.identity (Mat.dim mat_a)) mat_a
 end
 
 (* Problem 2-2 *)
@@ -159,7 +165,7 @@ end
 module BoolMat = MatrixFn (Boolean)
 module BoolMatClosure = ClosureFn (BoolMat)
 
-let reach _ = raise NotImplemented
+let reach (l:bool list list) = BoolMat.to_list(BoolMatClosure.closure(BoolMat.create l))
 
 let al = 
   [[true;  false; false; false; false; false];
@@ -184,17 +190,18 @@ struct
 
   exception ScalarIllegal
 
-  let zero = 999999              (* Dummy value : Rewrite it! *)
-  let one = 999999               (* Dummy value : Rewrite it! *)
+  let zero = -1
+  let one = 0
 
-  let (++) _ _ = raise NotImplemented
-  let ( ** ) _ _ = raise NotImplemented
-  let (==) _ _ = raise NotImplemented
+  let (++) x y = if(x=zero) then y else if (y=zero) then x else if(x>y) then y else x
+  let ( ** ) x y = if((x = zero) || (y = zero)) then zero else x + y
+  let (==) x y = (x = y)
 end
 
-(* .. Write some code here .. *)
+module DistanceMat = MatrixFn (Distance)
+module DistanceMatClosure = ClosureFn (DistanceMat)
 
-let distance _ = raise NotImplemented
+let distance (l:int list list) = DistanceMat.to_list(DistanceMatClosure.closure(DistanceMat.create l))
 
 let dl =
   [[  0;  -1;  -1;  -1;  -1;  -1 ];
@@ -219,17 +226,18 @@ struct
 
   exception ScalarIllegal
 
-  let zero = 999999              (* Dummy value : Rewrite it! *)
-  let one = 999999               (* Dummy value : Rewrite it! *)
+  let zero = 0              (* Plus:Max Mult:min*)
+  let one = -1              (* Dummy value : Rewrite it! *)
  
-  let (++) _ _ = raise NotImplemented
-  let ( ** ) _ _ = raise NotImplemented
-  let (==) _ _ = raise NotImplemented
+  let (++) x y = if((x = one) || (y = one)) then one else if(x>y) then x else y
+  let ( ** ) x y = if (x = one) then y else if(y = one) then x else if (x>y) then y else x
+  let (==) x y = (x = y)
 end
 
-(* .. Write some code here .. *)
+module WeightMat = MatrixFn (Weight)
+module WeightMatClosure = ClosureFn (WeightMat)
 
-let weight _ = raise NotImplemented
+let weight (l:int list list) = WeightMat.to_list(WeightMatClosure.closure(WeightMat.create l))
 
 let ml =
   [[-1; 0  ; 0  ; 0  ; 0  ; 0   ];
@@ -247,11 +255,10 @@ let solution_ml' =
    [0;  75; 25;  -1;  -1;  40 ];
    [0;  0;  0;   0;   0;   -1 ]]
 
-let _ =
+let testprog =
   try 
   if reach al = solution_al' && distance dl = solution_dl' && weight ml = solution_ml' then
     print_endline "\nYour program seems fine (but no guarantee)!"
   else
     print_endline "\nYour program might have bugs!"
   with _ -> print_endline "\nYour program is not complete yet!" 
-
