@@ -1,0 +1,5 @@
+let zero = lam s. lam z. z in
+let add = lam x. lam y. lam s. lam z. y s (x s z) in 
+add zero zero
+;
+
