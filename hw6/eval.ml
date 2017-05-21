@@ -49,6 +49,7 @@ type stoval =
  |Feqsnd of value
  |Fevaluating of Heap.loc
 
+
 (* Define your own empty environment *)
 let emptyEnv = (fun x -> raise NotConvertible)
 
@@ -69,6 +70,7 @@ LamClosure (environment , e) -> Lam e
 |Vminus -> Minus
 |Veq -> Eq
 
+
 (* Problem 1. 
  * texp2exp : Tml.texp -> Tml.exp *)
 let texp2exp te = let rec
@@ -86,8 +88,33 @@ let texp2exp te = let rec
     |Teunit -> Eunit
     |Tinl (te1,t) -> Inl (texp2exp_aux te1 fixctxt freectxt)
     |Tinr (te1,t) -> Inr (texp2exp_aux te1 fixctxt freectxt)
-    |Tcase (te1,v1,te2,v2,te3) -> let pre3 = texp2exp_aux te3 (fixctxt@[(v2, List.length fixctxt)]) freectxt 
-    and pre2 = texp2exp_aux te2 (fixctxt@[(v1, List.length fixctxt)]) freectxt 
+    |Tcase (te1,v1,te2,v2,te3) -> 
+    let rec convertVar texpr src dst = begin match texpr with
+      Tvar (v) -> if (v=dst) then Tvar(src) else Tvar(v)
+      |Tlam (v,t,te1) -> if (v=dst) then Tlam(src, t, (convertVar te1 src dst)) else Tlam(v, t, (convertVar te1 src dst))
+      |Tapp (te1,te2) -> Tapp (convertVar te1 src dst, convertVar te2 src dst)
+      |Tpair (te1,te2) -> Tpair (convertVar te1 src dst, convertVar te2 src dst)
+      |Tfst (te1) -> Tfst (convertVar te1 src dst)
+      |Tsnd (te1) -> Tsnd (convertVar te1 src dst)
+      |Teunit -> Teunit
+      |Tinl (te1,t) -> Tinl (convertVar te1 src dst, t)
+      |Tinr (te1,t) -> Tinr (convertVar te1 src dst, t)
+      |Tcase (te1,v1,te2,v2,te3) -> if (v1=dst) 
+      then (if (v2=dst) then Tcase(convertVar te1 src dst, src, convertVar te2 src dst, src, convertVar te3 src dst) else Tcase(convertVar te1 src dst, src, convertVar te2 src dst, v2, convertVar te3 src dst)) 
+      else (if (v2=dst) then Tcase(convertVar te1 src dst, v1, convertVar te2 src dst, src, convertVar te3 src dst) else Tcase(convertVar te1 src dst, v1, convertVar te2 src dst, v2, convertVar te3 src dst)) 
+      |Tfix (v,t,te1) -> if (v=dst) then Tfix(src, t, (convertVar te1 src dst)) else Tfix(v, t, (convertVar te1 src dst))
+      |Ttrue -> Ttrue
+      |Tfalse -> Tfalse
+      |Tifthenelse (te1,te2,te3) -> Tifthenelse (convertVar te1 src dst, convertVar te2 src dst, convertVar te3 src dst)
+      |Tnum i -> Tnum i
+      |Tplus -> Tplus
+      |Tminus -> Tminus
+      |Teq -> Teq
+    end
+  and prevfreectxt = ref !freectxt
+  in
+     let pre3 = texp2exp_aux (convertVar te3 v1 v2) (fixctxt@[(v1, List.length fixctxt)]) freectxt 
+    and pre2 = texp2exp_aux te2 (fixctxt@[(v1, List.length fixctxt)]) prevfreectxt 
     in Case (texp2exp_aux te1 fixctxt freectxt, pre2, pre3)
     |Tfix (v,t,te1) -> Fix (texp2exp_aux te1 (fixctxt@[(v, List.length fixctxt)]) freectxt)
     |Ttrue -> True
@@ -117,7 +144,7 @@ let rec step1 exp =
     | Eunit -> Eunit
     | Inl e -> Inl (tau i n e)
     | Inr e -> Inr (tau i n e)
-    | Case (e, e1, e2) -> Case (tau i n e, tau (i+1) n e1, tau (i+1) n e2)
+    | Case (e, e1, e2) -> Case (tau i n e, tau (i) n e1, tau (i) n e2)
     | Fix e -> Fix (tau (i+1) n e)
     | Ifthenelse (e, e1, e2) -> Ifthenelse (tau i n e, tau i n e1, tau i n e2)
     | True -> True
@@ -135,7 +162,7 @@ let rec step1 exp =
   | Eunit -> Eunit
   | Inl e -> Inl (sigma n e e2)
   | Inr e -> Inr (sigma n e e2)
-  | Case (e, exp1, exp2) -> Case(sigma n e e2, sigma (n+1) exp1 e2, sigma (n+1) exp2 e2)
+  | Case (e, exp1, exp2) -> Case(sigma n e e2, sigma (n) exp1 e2, sigma (n) exp2 e2)
   | Fix e -> Fix (sigma (n+1) e e2)
   | Ifthenelse (e, exp1, exp2) -> Ifthenelse (sigma n e e2, sigma n exp1 e2, sigma n exp2 e2)
   | True -> True
@@ -276,6 +303,9 @@ Anal_ST (h, sigma, expr, environment) -> begin
   in Anal_ST (h2, s, e1', env3)
     | _ -> raise NotConvertible
   end
+  | (Frame_SK(s, Fapp (env0, e2)), Vplus) -> Anal_ST (h, Frame_SK(s, Fplus), e2, env0)
+  | (Frame_SK(s, Fapp (env0, e2)), Vminus) -> Anal_ST (h, Frame_SK(s, Fminus), e2, env0)
+  | (Frame_SK(s, Fapp (env0, e2)), Veq) -> Anal_ST (h, Frame_SK(s, Feq), e2, env0)
   | (Frame_SK(s, Ffst), PairClosure (env, e1, e2)) -> Anal_ST (h, s, e1, env)
   | (Frame_SK(s, Fsnd), PairClosure (env, e1, e2)) -> Anal_ST (h, s, e2, env)
   | (Frame_SK(s, Fcase (env1, e1, e2)), InlClosure (env0, e)) -> 
